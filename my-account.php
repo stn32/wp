@@ -2,17 +2,7 @@
 /**
  * My Account page
  *
- * This template can be overridden by copying it to yourtheme/woocommerce/myaccount/my-account.php.
- *
- * HOWEVER, on occasion WooCommerce will need to update template files and you
- * (the theme developer) will need to copy the new files to your theme to
- * maintain compatibility. We try to do this as little as possible, but it does
- * happen. When this occurs the version of the template file will be bumped and
- * the readme will list any important changes.
- *
- * @see     https://woocommerce.com/document/template-structure/
- * @package WooCommerce\Templates
- * @version 2.6.0
+ * @version 2.6.5
  */
 
 defined('ABSPATH') || exit;
@@ -24,46 +14,31 @@ $endpoint = WC()->query->get_current_endpoint();
 if ($endpoint === 'view-order') {
     do_action('woocommerce_account_content');
 } else {
-    // Billing data with try-catch
-    try {
-        $billing_first_name = get_user_meta($customer_id, 'billing_first_name', true);
-        $billing_last_name = get_user_meta($customer_id, 'billing_last_name', true);
-        $billing_email = get_user_meta($customer_id, 'billing_email', true);
-        $billing_phone = get_user_meta($customer_id, 'billing_phone', true);
-        $billing_address_1 = get_user_meta($customer_id, 'billing_address_1', true);
-        $billing_city = get_user_meta($customer_id, 'billing_city', true);
-        $billing_postcode = get_user_meta($customer_id, 'billing_postcode', true);
-        $billing_country = get_user_meta($customer_id, 'billing_country', true);
-        $billing_address_2 = get_user_meta($customer_id, 'billing_address_2', true);
-        $billing_state = get_user_meta($customer_id, 'billing_state', true);
-    } catch (Exception $e) {
-        error_log('Billing meta error: ' . $e->getMessage());
-        $billing_first_name = $billing_last_name = $billing_email = $billing_phone = $billing_address_1 = $billing_city = $billing_postcode = $billing_country = $billing_address_2 = $billing_state = '';
-    }
+    // Billing data
+    $billing_first_name = get_user_meta($customer_id, 'billing_first_name', true);
+    $billing_last_name = get_user_meta($customer_id, 'billing_last_name', true);
+    $billing_email = get_user_meta($customer_id, 'billing_email', true);
+    $billing_phone = get_user_meta($customer_id, 'billing_phone', true);
+    $billing_address_1 = get_user_meta($customer_id, 'billing_address_1', true);
+    $billing_city = get_user_meta($customer_id, 'billing_city', true);
+    $billing_postcode = get_user_meta($customer_id, 'billing_postcode', true);
+    $billing_country = get_user_meta($customer_id, 'billing_country', true);
+    $billing_address_2 = get_user_meta($customer_id, 'billing_address_2', true);
+    $billing_state = get_user_meta($customer_id, 'billing_state', true);
 
-    // Bonuses with try-catch
-    try {
-        $phone = $billing_phone;
-        $bonus_data = $phone ? get_user_bonuses_by_phone($phone) : false;
-        error_log('Bonuses data: ' . print_r($bonus_data, true));
-    } catch (Exception $e) {
-        error_log('Bonuses error: ' . $e->getMessage());
-        $bonus_data = false;
-    }
+    // Bonuses
+    $phone = $billing_phone;
+    $bonus_data = $phone ? get_user_bonuses_by_phone($phone) : false;
+    error_log('Bonuses data: ' . print_r($bonus_data, true));
 
-    // Recent orders for dashboard with try-catch
-    try {
-        $recent_orders = wc_get_orders(array(
-            'customer' => $customer_id,
-            'limit' => 5,
-            'orderby' => 'date',
-            'order' => 'DESC',
-        ));
-        error_log('Recent orders count: ' . count($recent_orders));
-    } catch (Exception $e) {
-        error_log('Orders error: ' . $e->getMessage());
-        $recent_orders = array();
-    }
+    // Recent orders for dashboard
+    $recent_orders = wc_get_orders(array(
+        'customer' => $customer_id,
+        'limit' => 5,
+        'orderby' => 'date',
+        'order' => 'DESC',
+    ));
+    error_log('Recent orders count: ' . count($recent_orders));
     ?>
     <div class="custom-my-account">
         <!-- Custom navigation -->
