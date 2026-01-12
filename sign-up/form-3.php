@@ -1,4 +1,4 @@
-<?php 
+<?php ?>
 
 <!-- sign-up form v.2.1 -->
                 <div id="signup-form" class="signup_form account_form_item">
