@@ -1,61 +1,86 @@
-<!-- sign-up form v.2.1 -->
-<div id="signup-form" class="signup_form account_form_item">
-    <form id="signup2" class="signup_form_box" name="signupform" method="post">
-        <label for="username-signup">Логин:</label>
-        <input type="text" id="username-signup" name="username" required>
+/**
+ * sign-up form v.2.3
+ * Custom registration function
+ */
+function custom_register_user() {
 
-        <label for="email-signup">Email:</label>
-        <input type="email" id="email-signup" name="email" required>
+	if (!isset($_POST['auth_nonce']) || !wp_verify_nonce($_POST['auth_nonce'], 'custom_auth_action')) {
+		wp_send_json_error(['message' => 'Security check failed.']);
+	}
 
-        <label for="bill-phone-signup">Телефон:</label>
-        <input type="phone" id="bill-phone-signup" name="phone" required>
+	$username = sanitize_text_field($_POST['username']);
+	$email    = sanitize_email($_POST['email']);
+	$password = sanitize_text_field($_POST['password']);
+	$phone    = sanitize_text_field($_POST['phone']);
 
-        <label for="password-signup">Пароль:</label>
-        <input type="password" id="password-signup" name="password" required>
+	if (empty($username) || empty($email) || empty($password) || empty($phone)) {
+		wp_send_json_error(['message' => 'All fields are required.']);
+	}
 
-        <input type="hidden" name="auth_nonce" value="<?php echo wp_create_nonce('custom_auth_action'); ?>">
+	$username = transliterate_cyrillic_to_latin($username);
+	$username = sanitize_user($username, true);
 
-        <button type="submit" name="signup_submit">Регистрация</button>
-    </form>
-    <a href="/yandex-id/" class="signup_form_yandex_id"> 
-        <button>
-            <span>Регистрация через Яндекс ID</span>
-            <img src="<?php echo get_template_directory_uri();?>/assets/img/logo/yandex-id.jpg" alt="yandex">
-        </button>
-    </a>
-    <div class="signup_form_arragement">
-        <input type="checkbox" checked disabled>
-        <span>Нажимая кнопку "Регистрация" вы даете согласие на то, что ваши личные данные будут использоваться для обработки ваших заказов, упрощения работы с сайтом и для других целей, описанных в нашем <a href="/polzovatelskoe-soglashenie/">пользовательском соглашении</a></span>
-    </div>
-    <div class="error-message"></div>
-</div>
-<!-- sign-up form v.2.1 ajax -->
-<script>
-    document.getElementById('signup2').addEventListener('submit', async function (e) {
-        e.preventDefault(); // Prevent form from reloading the page
+	if (empty($username)) {
+		wp_send_json_error(['message' => 'Имя пользователя не может быть пустым после обработки.']);
+	}
 
-        const form = e.target;
-        const formData = new FormData(form);
-        formData.append('action', 'custom_register'); // Add the action parameter for the sign-up logic
+	if (username_exists($username)) {
+		wp_send_json_error(['message' => 'Такое имя уже занято']);
+	}
 
-        try {
-            const response = await fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                method: 'POST',
-                body: formData,
-            });
+	if (email_exists($email)) {
+		wp_send_json_error(['message' => 'Email уже используется.']);
+	}
 
-            const result = await response.json();
-            const errorMessageContainer = document.querySelector('#signup-form .error-message');
+	$phone = preg_replace('/\D/', '', $phone);
 
-            if (result.success) {
-                // Reload the page on success
-                location.reload();
-            } else {
-                // Display error message with HTML content
-                errorMessageContainer.innerHTML = result.data.message; // Use innerHTML to allow HTML tags
-            }
-        } catch (error) {
-            document.querySelector('#signup-form .error-message').innerText = 'Ошибка: неверные данные';
-        }
-    });
-</script>
+	// If phone number starts with 8, replace with 7
+	if (strlen($phone) > 0 && $phone[0] === '8') {
+		$phone[0] = '7';
+	}
+
+	$user_id = wp_create_user($username, $password, $email);
+
+	if (is_wp_error($user_id)) {
+		wp_send_json_error(['message' => $user_id->get_error_message()]);
+	}
+
+	// WooCommerce meta
+	update_user_meta($user_id, 'billing_phone', $phone);
+	update_user_meta($user_id, 'billing_country', 'RU');
+	update_user_meta($user_id, 'shipping_country', 'RU');
+	update_user_meta($user_id, 'billing_state', '');
+	update_user_meta($user_id, 'shipping_state', '');
+
+	// Auto-login
+	wp_clear_auth_cookie();
+	wp_set_current_user($user_id);
+	wp_set_auth_cookie($user_id);
+
+	// ----------------------------------------------------
+	// email with bonus message
+	// mmm
+	// ----------------------------------------------------
+	$subject = 'Спасибо за регистрацию на сайте';
+	$message = '
+			<html>
+			<body style="font-family: Arial; font-size: 16px; color: #333;">
+					<h2>💗🪽 Привет</h2>
+					<p style="margin: 10px 0 0 0";>Теперь ты часть комьюнити - места, где танец раскрывает энергию и грацию, превращая каждое движение в удовольствие.</p>
+					<p>Всё, что нужно танцору - в одном месте🫦</p>
+					<p>Мы начислили тебе 500 приветственных баллов -  используй их для покупок в течение 1 месяца.</p>
+					<p>🎀 Зайди в <a href="https://store.ru/account/">личный кабинет</a>, чтобы заполнить профиль.</p>
+					<p>Добро пожаловать!</p>
+			</body>
+			</html>
+	';
+	$headers = [
+		'Content-Type: text/html; charset=UTF-8'
+	];
+	wp_mail($email, $subject, $message, $headers);
+	// ----------------------------------------------------
+
+	wp_send_json_success(['message' => 'Регистрация успешна.']);
+}
+add_action('wp_ajax_custom_register', 'custom_register_user', 70);
+add_action('wp_ajax_nopriv_custom_register', 'custom_register_user', 70);
