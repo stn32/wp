@@ -5,7 +5,7 @@
  * Author:      stn32
  * Requires at least: 5.7
  * Requires PHP: 8.2
- * Version:     5.3
+ * Version:     5.4
  */
 
 if (!defined('ABSPATH')) exit;
@@ -311,4 +311,148 @@ function filter_products_by_backorder($q) {
             $q->set('posts_per_page', 0);
         }
     }
+}
+
+// Redirect if no products
+add_action('template_redirect', 'redirect_if_no_filtered_products_with_alert', 999);
+function redirect_if_no_filtered_products_with_alert() {
+    if (is_admin()) {
+        return;
+    }
+
+    // Works on shop and product category pages
+    if (!is_shop() && !is_product_category()) {
+        return;
+    }
+
+    $filter_map = array(
+        'tag'              => 'product_tag',
+        'czvet'            => 'pa_czvet',
+        'razmer'           => 'pa_razmer',
+        'material'         => 'pa_material',
+        'vysota'           => 'pa_vysota',
+        'vysota-zashhity'  => 'pa_vysota-zashhity',
+        'brend'            => 'pa_brend',
+        'category'         => 'product_cat',
+        'vysota-kabluka'   => 'pa_vysota-kabluka',
+    );
+
+    $has_filters = false;
+
+    foreach ($filter_map as $get_key => $taxonomy) {
+        if (isset($_GET[$get_key]) && is_array($_GET[$get_key]) && !empty($_GET[$get_key])) {
+            $has_filters = true;
+            break;
+        }
+    }
+
+    if (isset($_GET['stock_status']) && is_array($_GET['stock_status']) && !empty($_GET['stock_status'])) {
+        $has_filters = true;
+    }
+
+    if (!$has_filters) {
+        return;
+    }
+
+    $args = array(
+        'post_type'      => 'product',
+        'posts_per_page' => 1,
+        'post_status'    => 'publish',
+        'tax_query'      => array(
+            'relation' => 'AND'
+        ),
+    );
+
+    // Keep current category context if user is on category archive
+    // and category[] is not explicitly passed in URL
+    if (is_product_category() && (empty($_GET['category']) || !is_array($_GET['category']))) {
+        $current_category = get_queried_object();
+
+        if (!empty($current_category) && !empty($current_category->slug)) {
+            $args['tax_query'][] = array(
+                'taxonomy' => 'product_cat',
+                'field'    => 'slug',
+                'terms'    => array($current_category->slug),
+            );
+        }
+    }
+
+    foreach ($filter_map as $get_key => $taxonomy) {
+        if (isset($_GET[$get_key]) && is_array($_GET[$get_key])) {
+            $terms = array_filter(array_map('sanitize_text_field', $_GET[$get_key]));
+
+            if (!empty($terms)) {
+                $args['tax_query'][] = array(
+                    'taxonomy' => $taxonomy,
+                    'field'    => 'slug',
+                    'terms'    => $terms,
+                );
+            }
+        }
+    }
+
+    // Stock status support
+    if (isset($_GET['stock_status']) && is_array($_GET['stock_status'])) {
+        $stock_terms = array_filter(array_map('sanitize_text_field', $_GET['stock_status']));
+
+        if (!empty($stock_terms)) {
+            // If only "instock" is used in your form, this is enough
+            $args['meta_query'] = array(
+                array(
+                    'key'     => '_stock_status',
+                    'value'   => $stock_terms,
+                    'compare' => 'IN',
+                ),
+            );
+        }
+    }
+
+    $query = new WP_Query($args);
+
+    if (!$query->have_posts()) {
+        add_action('wp_footer', 'no_products_alert_and_back_js', 999);
+    }
+
+    wp_reset_postdata();
+}
+function no_products_alert_and_back_js() {
+    $shop_url = wc_get_page_permalink('shop');
+    ?>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            const siteMainBlock = document.querySelector('.site-main');
+            if (!siteMainBlock) return;
+
+            // Prevent duplicate insert
+            if (document.querySelector('.filter-back-box')) return;
+
+            const newBtnBack = document.createElement('div');
+            newBtnBack.classList.add('filter-back-box');
+
+            newBtnBack.innerHTML = `
+                <div class="filter-back-box-cover"></div>
+                <div class="filter-back-box-content">
+                    <p>По данному запросу товаров не найдено</p>
+                    <div class="filter-back-box-buttons">
+                        <button type="button" class="filter-back-btn">Назад</button>
+                        <a style="text-align: center; width: 100%; display: block; margin: 10px 0 0 0;" href="<?php echo esc_url($shop_url); ?>" class="filter-reset-btn">Сбросить фильтр</a>
+                    </div>
+                </div>
+            `;
+
+            siteMainBlock.appendChild(newBtnBack);
+
+            const backBtn = newBtnBack.querySelector('.filter-back-btn');
+            if (backBtn) {
+                backBtn.addEventListener('click', function () {
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.location.href = '<?php echo esc_js($shop_url); ?>';
+                    }
+                });
+            }
+        });
+    </script>
+    <?php
 }
