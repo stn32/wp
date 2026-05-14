@@ -1,0 +1,41 @@
+.s32-notice {
+  width: 90%;
+  position: fixed;
+  bottom: 80px;
+  right: 0;
+  left: 0;
+  margin: auto;
+  transform: translateX(-50%);
+  padding: 14px 44px 14px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  z-index: 99999;
+  max-width: 460px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  animation: s32-slide-up .3s ease;
+}
+.s32-notice--warn {
+  background: #fef3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+.s32-notice--error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+.s32-notice-close {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: .6;
+}
+.s32-notice-close:hover { opacity: 1; }
+
+@keyframes s32-slide-up {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
